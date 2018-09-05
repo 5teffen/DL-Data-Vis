@@ -1,2 +1,2 @@
-# Data-Visualisation-Capstone-
-The repository for the Data Visualisation application 
+# Data-Visualisation-Capstone
+The general repository for the Data Visualisation application.
