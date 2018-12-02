@@ -1,6 +1,7 @@
 
 # -- Imports -- 
 import torch
+import torch.nn as nn
 from torch.utils import data
 import torchvision
 from torch.autograd import Variable
@@ -12,6 +13,9 @@ import os
 import numpy as np
 from my_classes import DataSampler
 from model_linear import autoenc
+
+import matplotlib
+import matplotlib.pyplot as plt
 # from my_dataset import myDataset
 
 
@@ -22,9 +26,9 @@ device = torch.device("cuda:0" if use_cuda else "cpu")
 
 
 # -- Parameters --
-num_epochs = 10			
-batch_size = 128
-learning_rate = 0.001
+epochs = 1000			
+batch_size = 150
+learning_rate = 0.005
 momentum = 0.9
 
 
@@ -50,43 +54,38 @@ dataloader = DataLoader(data, batch_size=batch_size, sampler = my_sampler, shuff
 # -- Set model, loss function and optimizer --
 model = autoenc()
 criterion = nn.MSELoss()
-optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate)
+optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum = momentum)
+
+
+# -- Training loop -- 
+
+loss_lst = []
+
+
+for epoch in range(epochs):		# Each Epoch
+	for batch in dataloader:	# Each Iteration
+		img, _ = batch
+		img = img.view(img.size(0), -1)
+		img = Variable(img, requires_grad = False)
+
+		# - Forward Progragation -
+		output,code = model(img)
+		loss = criterion(output, img)
+
+		# - Back Propagation -
+		optimizer.zero_grad()	# Gradient needs to be reduced back to zero after each iteration
+		loss.backward()
+		optimizer.step()
+
+	# - Progress Count - 
+	loss_lst.append(loss.data[0])
+	print('epoch [{}/{}], loss:{:.4f}'.format(epoch + 1, epochs, loss.data[0]))
 
 
 
+plt.plot(list(range(1, epochs+1)), loss_lst)
+plt.xlabel("Epoch")
+plt.ylabel("MSE Loss")
+plt.show()
 
-# # Parameters
-# params = {'batch_size': 64,
-#           'shuffle': True,
-#           'num_workers': 6}
-# max_epochs = 100
 
-# # Datasets
-# partition = # IDs
-# labels = # Labels
-
-# # Generators
-# training_set = Dataset(partition['train'], labels)
-# training_generator = data.DataLoader(training_set, **params)
-
-# validation_set = Dataset(partition['validation'], labels)
-# validation_generator = data.DataLoader(validation_set, **params)
-
-# # Loop over epochs
-# for epoch in range(max_epochs):
-#     # Training
-#     for local_batch, local_labels in training_generator:
-#         # Transfer to GPU
-#         local_batch, local_labels = local_batch.to(device), local_labels.to(device)
-
-#         # Model computations
-#         [...]
-
-#     # Validation
-#     with torch.set_grad_enabled(False):
-#         for local_batch, local_labels in validation_generator:
-#             # Transfer to GPU
-#             local_batch, local_labels = local_batch.to(device), local_labels.to(device)
-
-#             # Model computations
-#             [...]

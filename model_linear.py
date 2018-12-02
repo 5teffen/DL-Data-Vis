@@ -24,4 +24,4 @@ class autoenc(nn.Module):
     def forward(self, x):
         code = self.encoder(x)
         x = self.decoder(code)
-        return x
+        return x,code
