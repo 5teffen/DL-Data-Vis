@@ -11,8 +11,9 @@ from torchvision.datasets import MNIST
 import os
 
 import numpy as np
-from my_classes import DataSampler
-from model_linear import autoenc
+from my_classes import DataSampler, MyAdaptiveLR
+from model_linear import Autoenc,Autoenc2
+from model_conv import Autoencoder as Autoenc_conv
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -26,9 +27,9 @@ device = torch.device("cuda:0" if use_cuda else "cpu")
 
 
 # -- Parameters --
-epochs = 1000			
-batch_size = 150
-learning_rate = 0.005
+epochs = 500			
+batch_size = 100
+learning_rate = 0.1
 momentum = 0.9
 
 
@@ -45,17 +46,18 @@ data = MNIST('./data', transform=simple_transform, download=True)	# Replace with
 
 # -- Sampler and Dataloader -- 
 np.random.seed(0)
-subset_indices = np.random.permutation(len(data))[:5000] # Create a randomized subset of indices
+subset_indices = np.random.permutation(len(data))[:10000] # Create a randomized subset of indices
 
 my_sampler = DataSampler(subset_indices)
 dataloader = DataLoader(data, batch_size=batch_size, sampler = my_sampler, shuffle=False) # sampler and shuffle are not compatible
 
 
 # -- Set model, loss function and optimizer --
-model = autoenc()
+model = Autoenc()
 criterion = nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum = momentum)
-
+# adaptive_lr = MyAdaptiveLR(optimizer,factor=0.1, patience=50, stag_range= 1e-4)
+adaptive_lr = MyAdaptiveLR(optimizer,factor=0.1, patience=5, stag_range= 0.0005)
 
 # -- Training loop -- 
 
@@ -78,14 +80,36 @@ for epoch in range(epochs):		# Each Epoch
 		optimizer.step()
 
 	# - Progress Count - 
-	loss_lst.append(loss.data[0])
-	print('epoch [{}/{}], loss:{:.4f}'.format(epoch + 1, epochs, loss.data[0]))
+	
+	loss_val = loss.data[0]
+	loss_lst.append(loss_val)
+	print('epoch [{}/{}], loss:{:.4f}'.format(epoch + 1, epochs, loss_val))
 
 
+	# - Adapt LR -
+	adaptive_lr.step(loss_val,epoch)
+
+# print(code)
 
 plt.plot(list(range(1, epochs+1)), loss_lst)
 plt.xlabel("Epoch")
 plt.ylabel("MSE Loss")
 plt.show()
+
+
+# -- Adaptive learning rate -- 
+
+
+
+
+
+
+
+# optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+# scheduler = ReduceLROnPlateau(optimizer, 'min') # set up scheduler
+# for epoch in range(10):
+#     train(...)
+#     val_acc, val_loss = validate(...)
+#     scheduler.step(val_loss, epoch) # update lr if needed
 
 
