@@ -1,6 +1,10 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 from torch.utils.data import Sampler
 from torch.optim.optimizer import Optimizer
+from torch.autograd import Variable
 import numpy as np
 
 
@@ -13,8 +17,6 @@ class DataSampler(Sampler):
 
     def __len__(self):
         return len(self.indices)
-
-
 
 
 class MyAdaptiveLR(object):
@@ -73,3 +75,30 @@ class MyAdaptiveLR(object):
 
 	def in_cooldown(self):
 		return self.cooldown_counter > 0
+
+
+class PruneLinear(nn.Linear):
+	def __init__(self, in_features, out_features, bias=True):
+		super(PruneLinear, self).__init__(in_features, out_features, bias)
+		self.mask_flag = False
+
+	def set_mask(self, mask):
+		self.register_buffer('mask', mask)
+		mask_var = self.get_mask()
+		self.weight.data = self.weight.data*mask_var.data
+		self.mask_flag = True
+
+	def get_mask(self):
+		if torch.cuda.is_available():
+			self.mask = self.mask.cuda()
+		return Variable(self.mask, requires_grad=False)
+
+	def forward(self, x):
+		if self.mask_flag == True:
+			mask_var = self.get_mask()
+			weight = self.weight * mask_var
+			return F.linear(x, weight, self.bias)
+		else:
+			return F.linear(x, self.weight, self.bias)
+
+

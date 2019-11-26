@@ -1,3 +1,4 @@
+
 # -- Imports -- 
 import torch
 import torch.nn as nn
@@ -18,16 +19,33 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from PIL import Image
 
+import operator
+
+
 from sklearn.metrics import mean_squared_error
 
-k = 3
+k = 10
 
+
+input_path = './Data-Collection/Voronoi-Results/Voronoi-' + str(k) + '.csv'
+
+file_name = "Full-file"
+file_name_voronoi = "voronoi-"+str(k)
 model_name = 'full_model.pth'
 data_path = './data/cap2019_datavis/data'
 model_path = './data/cap2019_datavis/' + model_name
+output_path = './Data-Collection/'
+
+subset = 100
 
 simple_transform = transforms.Compose([transforms.ToTensor()])
 test_data = MNIST(data_path, transform=simple_transform, download=True, train = False)
+train_data = MNIST(data_path, transform=simple_transform, download=True, train = True)
+
+# Fixing random state for reproducibility
+np.random.seed(100)
+my_sampler = DataSampler(np.random.permutation(len(train_data))[:subset])
+
 test_dataloader = DataLoader(test_data, batch_size=1000, shuffle=False)
 
 mapping = Autoenc()
@@ -40,11 +58,8 @@ output_data = None
 reduced_data = None
 labels_data = None
 
-# --- Get output tensors --- 
-
-
 chosen = test_dataloader # Change if want trainining
-# chosen = train_dataloader 
+
 
 revert_back = transforms.ToPILImage()
 for i, (img, labels) in enumerate(chosen):
@@ -66,8 +81,8 @@ for i, (img, labels) in enumerate(chosen):
 		reduced_data = torch.cat((reduced_data,batch_red),0)
 		labels_data = torch.cat((labels_data,labels),0)
 
+
 loss = nn.MSELoss()(batch_out, batch)
-# print(loss.item())
 
 input_data = (input_data.cpu().detach().numpy()*255).astype(int)
 output_data = (output_data.cpu().detach().numpy()*255).astype(int)
@@ -76,74 +91,44 @@ reduced_data = reduced_data.cpu().detach().numpy()
 labels_data = labels_data.cpu().detach().numpy()
 
 
-mse = mean_squared_error(input_data, output_data)/60000
-print(mse)
-
-
 kmeans = KMeans(n_clusters=k ,n_init=10)
 kmeans.fit_transform(reduced_data)
 clusters = kmeans.labels_
-print(kmeans.cluster_centers_)
 
 
 clusters = np.reshape(clusters,(clusters.shape[0],1)).astype(int)
 labels_data = np.reshape(labels_data,(labels_data.shape[0],1)).astype(int)
 
-export_file = np.append(reduced_data, clusters, axis = 1)
+counting = [{} for x in range(10)]
+
+test_file = np.append(labels_data, clusters, axis = 1)
+
+for f in range(test_file.shape[0]):
+	l = counting[test_file[f][0]]
+	c = test_file[f][1]
+
+	if c in l:
+		l[c] += 1
+	else:
+		l[c] = 1
 
 
-# --- Dealing with Voronoi --- 
+for d in range(len(counting)):
+	dic = counting[d]
+	m = max(dic.items(), key=operator.itemgetter(1))[0]
 
-all_points = pd.read_csv(input_path, header=None).values
-
-xyz = all_points[:,:3]
-labels = all_points[:,3]
-
-clustered = kmeans.predict(xyz)
-
-new_voronoi = []
-
-# all_points = all_points[:,:3]
-label_list = [x for x in range(k)]
+	print("Digit " + str(d) + " -- Cluster " + str(m+1))
 
 
-for val in label_list:
-	count_list = [0 for x in range(k)]
-	total_count = 0
-	
-	for idx in range(all_points.shape[0]):
-		if val == labels[idx]:
-			total_count += 1
-			new_label = clustered[idx]
-			count_list[new_label] += 1
 
 
-	to_add = count_list.index(max(count_list))
-
-	for z in range(total_count):
-		new_voronoi.append(to_add)
 
 
-voronoi_output = np.append(xyz, (np.array(new_voronoi)).reshape(len(new_voronoi),1), axis = 1)
 
 
-my_file = open(output_path + file_name_voronoi + ".csv", 'ab')
-np.savetxt(my_file,voronoi_output, delimiter=',', fmt='%f')
-my_file.close()
-
-export_file = np.append(reduced_data, labels_data, axis = 1)
-export_file = np.append(export_file, clusters, axis = 1)
-export_file_full = np.append(export_file, input_data, axis = 1)
-export_file_full = np.append(export_file_full, output_data, axis = 1)
-
-my_file = open(output_path + file_name + ".csv", 'ab')
-np.savetxt(my_file,export_file, delimiter=',', fmt='%f')
-my_file.close()
 
 
-my_file = open(output_path + file_name + "_full.csv", 'ab')
-np.savetxt(my_file,export_file_full, delimiter=',', fmt='%f')
-my_file.close()
 
 
-plt.scatter(X[:,0],X[:,1], c=kmeans.labels_, cmap='rainbow')  
+
+

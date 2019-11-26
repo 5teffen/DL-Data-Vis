@@ -11,20 +11,23 @@ from torchvision.datasets import MNIST
 from my_classes import DataSampler, MyAdaptiveLR
 from model_linear import Autoenc
 
-import numpy as np
+import numpy as np 
 import pandas as pd
 from sklearn.cluster import KMeans
 
 import matplotlib.pyplot as plt
 from PIL import Image
 
-from sklearn.metrics import mean_squared_error
 
-k = 3
+k = 2
 
+input_path = './Data-Collection/Voronoi-Results/Voronoi-' + str(k) + '.csv'
+file_name = "Voronoi-"+str(k)
 model_name = 'full_model.pth'
 data_path = './data/cap2019_datavis/data'
 model_path = './data/cap2019_datavis/' + model_name
+output_path = './Data-Collection'
+
 
 simple_transform = transforms.Compose([transforms.ToTensor()])
 test_data = MNIST(data_path, transform=simple_transform, download=True, train = False)
@@ -32,20 +35,15 @@ test_dataloader = DataLoader(test_data, batch_size=1000, shuffle=False)
 
 mapping = Autoenc()
 
+# mapping = nn.DataParallel(mapping)
 mapping.load_state_dict(torch.load(model_path, map_location = 'cpu'))
 mapping.eval()
 
-input_data = None
-output_data = None
+
 reduced_data = None
-labels_data = None
 
 # --- Get output tensors --- 
-
-
-chosen = test_dataloader # Change if want trainining
-# chosen = train_dataloader 
-
+chosen = test_dataloader 
 revert_back = transforms.ToPILImage()
 for i, (img, labels) in enumerate(chosen):
 	batch = img.view(img.size(0), -1)
@@ -54,30 +52,13 @@ for i, (img, labels) in enumerate(chosen):
 
 	# plt.imshow(revert_back(img.squeeze()))
 
-	if output_data is None:
-		input_data = batch
-		output_data = batch_out
+	if reduced_data is None:
 		reduced_data = batch_red
-		labels_data = labels
-
 	else: 
-		input_data = torch.cat((input_data,batch),0)
-		output_data = torch.cat((output_data,batch_out),0)
 		reduced_data = torch.cat((reduced_data,batch_red),0)
-		labels_data = torch.cat((labels_data,labels),0)
 
-loss = nn.MSELoss()(batch_out, batch)
-# print(loss.item())
 
-input_data = (input_data.cpu().detach().numpy()*255).astype(int)
-output_data = (output_data.cpu().detach().numpy()*255).astype(int)
-output_data[output_data < 0] = 0
 reduced_data = reduced_data.cpu().detach().numpy()
-labels_data = labels_data.cpu().detach().numpy()
-
-
-mse = mean_squared_error(input_data, output_data)/60000
-print(mse)
 
 
 kmeans = KMeans(n_clusters=k ,n_init=10)
@@ -85,14 +66,6 @@ kmeans.fit_transform(reduced_data)
 clusters = kmeans.labels_
 print(kmeans.cluster_centers_)
 
-
-clusters = np.reshape(clusters,(clusters.shape[0],1)).astype(int)
-labels_data = np.reshape(labels_data,(labels_data.shape[0],1)).astype(int)
-
-export_file = np.append(reduced_data, clusters, axis = 1)
-
-
-# --- Dealing with Voronoi --- 
 
 all_points = pd.read_csv(input_path, header=None).values
 
@@ -125,25 +98,8 @@ for val in label_list:
 
 
 voronoi_output = np.append(xyz, (np.array(new_voronoi)).reshape(len(new_voronoi),1), axis = 1)
+print(voronoi_output.shape)
 
 
-my_file = open(output_path + file_name_voronoi + ".csv", 'ab')
-np.savetxt(my_file,voronoi_output, delimiter=',', fmt='%f')
-my_file.close()
-
-export_file = np.append(reduced_data, labels_data, axis = 1)
-export_file = np.append(export_file, clusters, axis = 1)
-export_file_full = np.append(export_file, input_data, axis = 1)
-export_file_full = np.append(export_file_full, output_data, axis = 1)
-
-my_file = open(output_path + file_name + ".csv", 'ab')
-np.savetxt(my_file,export_file, delimiter=',', fmt='%f')
-my_file.close()
 
 
-my_file = open(output_path + file_name + "_full.csv", 'ab')
-np.savetxt(my_file,export_file_full, delimiter=',', fmt='%f')
-my_file.close()
-
-
-plt.scatter(X[:,0],X[:,1], c=kmeans.labels_, cmap='rainbow')  
