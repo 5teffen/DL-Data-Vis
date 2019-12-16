@@ -96,6 +96,8 @@ kmeans.fit_transform(reduced_data)
 clusters = kmeans.labels_
 
 
+# -- Statistical Analysis of Clusters
+
 clusters = np.reshape(clusters,(clusters.shape[0],1)).astype(int)
 labels_data = np.reshape(labels_data,(labels_data.shape[0],1)).astype(int)
 
@@ -112,11 +114,13 @@ for f in range(test_file.shape[0]):
 	else:
 		l[c] = 1
 
+print(counting)
 
 for d in range(len(counting)):
 	dic = counting[d]
-	m = max(dic.items(), key=operator.itemgetter(1))[0]
-
+	sorted_lst = max(dic.items(), key=operator.itemgetter(1))
+	m = sorted_lst[0]   # Mosd
+	s
 	print("Digit " + str(d) + " -- Cluster " + str(m+1))
 
 
