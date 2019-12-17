@@ -101,26 +101,27 @@ clusters = kmeans.labels_
 clusters = np.reshape(clusters,(clusters.shape[0],1)).astype(int)
 labels_data = np.reshape(labels_data,(labels_data.shape[0],1)).astype(int)
 
-counting = [{} for x in range(10)]
+label_count = [{} for x in range(10)]
+cluster_count = [{} for x in range(10)]
 
 test_file = np.append(labels_data, clusters, axis = 1)
 
 for f in range(test_file.shape[0]):
-	l = counting[test_file[f][0]]
-	c = test_file[f][1]
+	label_dic = label_count[test_file[f][0]]
+	cluster_no = test_file[f][1]
 
-	if c in l:
-		l[c] += 1
+	if cluster_no in label_dic:
+		label_dic[cluster_no] += 1
 	else:
-		l[c] = 1
+		label_dic[cluster_no] = 1
 
-print(counting)
+print(label_count)
 
-for d in range(len(counting)):
-	dic = counting[d]
+for d in range(len(label_count)):
+	dic = label_count[d]
 	sorted_lst = max(dic.items(), key=operator.itemgetter(1))
 	m = sorted_lst[0]   # Mosd
-	s
+	s = sorted_lst[1]
 	print("Digit " + str(d) + " -- Cluster " + str(m+1))
 
 
